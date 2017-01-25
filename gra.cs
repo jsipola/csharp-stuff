@@ -103,7 +103,7 @@ public class gra : MonoBehaviour {
 				client.DownloadFile("http://192.168.1.84:8000/random/arrow_color.obj", @"C:\Users\kone6\Documents\Office\Assets\arrow_color.obj");
 				client.DownloadFile("http://192.168.1.84:8000/random/arrow_color.mtl", @"C:\Users\kone6\Documents\Office\Assets\arrow_color.mtl");
 			} catch (Exception e) {
-				print("Something went wrong when downloading");
+				print("Something went wrong when downloading: "+e.ToString());
 			}
 		}
 		cube = OBJLoader.LoadOBJFile(@"C:\Users\kone6\Documents\cube.obj");
@@ -111,12 +111,14 @@ public class gra : MonoBehaviour {
 		print("Object loaded");
 	}
 	
-	public Vector3 getCubePos(){
-		return pos;
+	public Vector3 getPos(string str){
+		if str.Equals("cube")
+            return pos;
 	}
 	
-	public Vector3 getCubeRot(){
-		return rot;
+	public Vector3 getRot(string str){
+        if str.Equals("cube")
+		    return rot;
 	}
 	
      public void OnApplicationQuit()   {
