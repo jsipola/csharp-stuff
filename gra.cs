@@ -35,7 +35,7 @@ public class gra : MonoBehaviour {
 		rot = new Vector3(0,0,0);
 		EP = new IPEndPoint(IPAddress.Parse(IP),port);
 		
-		downloadObj(); // download object during runtime
+		downloadObj("url here"); // download object during runtime
 		
 		sock = new Socket(EP.AddressFamily, SocketType.Stream, ProtocolType.Tcp); // make tcp socket
 		//sock = new Socket(EP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
@@ -46,7 +46,7 @@ public class gra : MonoBehaviour {
 			print("problem with the socket connection");
 		}
 		print("CREATING Socket Thread");
-		receiveThread = new Thread(new ThreadStart(socket_thread)); // makes thread for receiving data
+		receiveThread = new Thread(new ThreadStart(socket_thread(sock))); // makes thread for receiving data
 		receiveThread.IsBackground = true;
 		receiveThread.Start();
 		print("Started");
@@ -59,13 +59,32 @@ public class gra : MonoBehaviour {
 		//this.gameObject.transform.eulerAngles = rot;
      }
 
+    private void make_socket_thread(string ip, int socket_port){
+		IPEndpoint EP_new = new IPEndPoint(IPAddress.Parse(ip),socket_port);
+		
+		downloadObj("url here"); // download object during runtime
+		
+		Socket socket = new Socket(EP_new.AddressFamily, SocketType.Stream, ProtocolType.Tcp); // make tcp socket
+		try {
+			socket.Connect(EP_new); // TODO: if failed try later in socket_tick
+			socket.Send(Encoding.UTF8.GetBytes("l pos\n")); // send msg to start sending
+		} catch (Exception e) {
+			print("problem with the socket connection");
+		}
+		print("CREATING Socket Thread");
+		Thread socketThread = new Thread(new ThreadStart(socket_thread(socket))); // makes thread for receiving data
+		socketThread.IsBackground = true;
+		socketThread.Start();
+	
+    }
+
 	     
-    private void socket_thread(){
+    private void socket_thread(Socket socket){
         try {
 			string[] buffer = "pos 0 0 0 0 0 0".Split();
 			while (Thread.CurrentThread.IsAlive){
 				byte[] rec = new byte[100];
-				sock.Receive(rec);
+				socket.Receive(rec);
 				data = encode.GetString(rec);
 				print("REC:"+data);
 				buffer = data.Split();
@@ -95,12 +114,13 @@ public class gra : MonoBehaviour {
         }
     }
 	
-	private void downloadObj(){
+	private void downloadObj(string urli){
 		print("Downloading files");
 		using (var client = new System.Net.WebClient())
 		{
 			try {
 				client.DownloadFile("http://192.168.1.84:8000/random/arrow_color.obj", @"C:\Users\kone6\Documents\Office\Assets\arrow_color.obj");
+				//client.DownloadFile(urli, @"C:\Users\kone6\Documents\Office\Assets\arrow_color.obj");
 				client.DownloadFile("http://192.168.1.84:8000/random/arrow_color.mtl", @"C:\Users\kone6\Documents\Office\Assets\arrow_color.mtl");
 			} catch (Exception e) {
 				print("Something went wrong when downloading: "+e.ToString());
@@ -110,17 +130,19 @@ public class gra : MonoBehaviour {
 		//cube.AddComponent<Liiku scripti>();
 		print("Object loaded");
 	}
-	
+/*	
 	public Vector3 getPos(string str){
 		if str.Equals("cube")
+        {
             return pos;
+        }
 	}
 	
 	public Vector3 getRot(string str){
         if str.Equals("cube")
 		    return rot;
 	}
-	
+*/	
      public void OnApplicationQuit()   {
       receiveThread.Abort();
       if (sock!=null) sock.Close(); 
