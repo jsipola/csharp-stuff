@@ -51,6 +51,7 @@ public class gra : MonoBehaviour {
 		
 		
 		cube = downloadObj(); // download object during runtime
+//        cube = downloadAsset();
 		objs.Add(name);
 		posit.Add(name,pos);
 		rots.Add(name,rot);
@@ -150,6 +151,22 @@ public class gra : MonoBehaviour {
 		print("Object loaded");
 		return cuube;
 	}
+
+    private GameObject downloadAsset(){
+
+        WWW www = new WWW(url);
+        yield return www;
+        AssetBundle bundle = www.assetBundle;
+        AssetBundleRequest req = bundle.LoadAssetAsync(name,typeo    f(GameObject));
+        yield return request;
+        GameObject cube = req.asset as GameObject;
+        bundle.Unload(false);
+        www.Dispose();
+        cube.name = name;
+        return cube;
+}
+
+
 	
 	private void moveObject(){
 		Vector3 pos_vec;
