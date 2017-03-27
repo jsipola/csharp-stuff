@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -15,12 +15,10 @@ public class gra : MonoBehaviour {
     Thread iThread; 
     Socket sock;
     public string IP = "192.168.1.14";
-	public string DownloadLink = "";
+	public string DownloadLink = "192.168.1.84";
     public int port = 54345;
-	
-	//public string IP_2 = "";
-	//public int port_2 = 54345;
-	
+	int version = 1;
+
     System.Text.ASCIIEncoding encode = new System.Text.ASCIIEncoding();
     private IPEndPoint EP;
     string data = string.Empty;
@@ -51,11 +49,13 @@ public class gra : MonoBehaviour {
 		
 		
 		cube = downloadObj(); // download object during runtime
-//        cube = downloadAsset();
+
 		objs.Add(name);
 		posit.Add(name,pos);
 		rots.Add(name,rot);
 		
+		//cube.name = name;
+		/*
 		EP = new IPEndPoint(IPAddress.Parse(IP),port);
 		sock = new Socket(EP.AddressFamily, SocketType.Stream, ProtocolType.Tcp); // make tcp socket
 		socketList.Add(sock);
@@ -64,6 +64,7 @@ public class gra : MonoBehaviour {
 			sock.Connect(EP); // TODO: if failed try later in socket_tick
 			sock.Send(Encoding.UTF8.GetBytes("l pos\n")); // send msg to start sending
 		} catch (Exception e) {
+			print("Problem with the socket: "+ e.ToString());
 			print("problem with the socket connection");
 		}
 		print("CREATING Socket Thread");
@@ -72,14 +73,10 @@ public class gra : MonoBehaviour {
 		receiveThread.Start();
 		threadList.Add(receiveThread);
 		print("Started");
+		*/
      }
+	 
      void Update() {
-		//cube.transform.position = pos; // modify downloaded objects location
-		//cube.transform.eulerAngles = rot;
-		 
-		//this.gameObject.transform.position = pos;
-		//this.gameObject.transform.eulerAngles = rot;
-		
 		moveObject();
 		
      }
@@ -104,15 +101,10 @@ public class gra : MonoBehaviour {
 					rot[0] = float.Parse(buffer[4]);
 					rot[1] = -float.Parse(buffer[6]); // horizontal rotation
 					rot[2] = float.Parse(buffer[5]);
-					
-					if (model[0] == "cube"){
-						posit["cube"] = pos;
-						rots["cube"] = rot;
-					}
-					if (model[0] == "copter"){
-						posit["copter"] = pos;
-						rots["copter"] = rot;
-					}
+
+					posit[model[0]] = pos;
+					rots[model[0]] = rot;
+					//print(model[0]);
 				}
 				Thread.Sleep(10);
 			}  
@@ -131,44 +123,30 @@ public class gra : MonoBehaviour {
             print(err.ToString());
         }
     }
+
 	
 	private GameObject downloadObj(){
 		print("Downloading files");
+		string path = System.IO.Path.GetDirectoryName(Application.dataPath);
+		/*
 		using (var client = new System.Net.WebClient())
 		{
-			try {
-				client.DownloadFile("http://"+DownloadLink+":8000/random/arrow_color.obj", @"C:\Users\kone6\Documents\Office\Assets\arrow_color.obj");
-				client.DownloadFile("http://192.168.1.84:8000/random/arrow_color.obj", @"C:\Users\kone6\Documents\Office\Assets\arrow_color.obj");
-				client.DownloadFile("http://192.168.1.84:8000/random/arrow_color.mtl", @"C:\Users\kone6\Documents\Office\Assets\arrow_color.mtl");
+			try { // downloads object and mtl files from a webserver at address "DownloadLink"
+				client.DownloadFile("http://"+DownloadLink+":8000/"+name+".obj", path+"/"+name+".obj");
+				client.DownloadFile("http://"+DownloadLink+":8000/"+name+".mtl", path+"/"+name+".mtl");
 			} catch (Exception e) {
-				print("Something went wrong when downloading");
+				print("Problem downloading obj: "+ e.ToString());
 			}
 		}
-//		GameObject cuube = OBJLoader.LoadOBJFile(@"C:\Users\kone6\Documents\cube.obj");
-		GameObject cuube = OBJLoader.LoadOBJFile(@"C:\Users\kone6\arrow_color.obj");
+		*/
+		GameObject cuube = OBJLoader.LoadOBJFile(path+"//"+name+".obj");
 		cuube.name = name; // rename the object
-
+		print(path+"/"+name);
 		print("Object loaded");
 		return cuube;
 	}
 
-    private GameObject downloadAsset(){
-
-        WWW www = new WWW(url);
-        yield return www;
-        AssetBundle bundle = www.assetBundle;
-        AssetBundleRequest req = bundle.LoadAssetAsync(name,typeo    f(GameObject));
-        yield return request;
-        GameObject cube = req.asset as GameObject;
-        bundle.Unload(false);
-        www.Dispose();
-        cube.name = name;
-        return cube;
-}
-
-
-	
-	private void moveObject(){
+	private void moveObject(){ // move every object 
 		Vector3 pos_vec;
 		Vector3 rot_vec;
 		try {
@@ -180,7 +158,7 @@ public class gra : MonoBehaviour {
 				obj.transform.eulerAngles = rot_vec;
 			}
 		} catch(Exception e) {
-			
+			//print("Problem moving object: "+ e.ToString());
 		}
 		
 	}
@@ -192,14 +170,14 @@ public class gra : MonoBehaviour {
 				thread.Abort();
 			}
 		} catch(Exception e) {
-			
+			print("Problem ending threads: "+ e.ToString());
 		}
 		try {
 			foreach(var socket in socketList) { // rotates the objects of the scene
 				if (socket!=null) socket.Close(); 
 			}
 		} catch(Exception e) {
-			
+			print("Problem ending sockets: "+ e.ToString());
 		}
       //if (sock!=null) sock.Close(); 
       print("Stop"); 
