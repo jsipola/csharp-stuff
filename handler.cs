@@ -17,22 +17,22 @@ public class handler : MonoBehaviour {
 	string server_o;
 	string IP;
 	//string name;
-	Socket soc_1;
+	Socket soc_1 = null;
 	int port_r = 54545;
 	int port;
 	bool done = true;
 	bool makeobject = false;
 	gra mygra = null;
+	Thread recThread;
 	System.Text.ASCIIEncoding encode = new System.Text.ASCIIEncoding();
 
 
 	// Use this for initialization
 	void Start() {
 		// start  thread for receiving data
-		Thread recThread = new Thread(() => commslisten()); 
+		recThread = new Thread(() => commslisten()); 
 		recThread.IsBackground = true;
 		recThread.Start();
-		//checkGra();
 	}
 
 	// Update is called once per frame
@@ -41,10 +41,7 @@ public class handler : MonoBehaviour {
 			if (makeobject) {
 				mygra.init();
 				makeobject = false;
-/*			if (!mygra.inited) {
-				mygra.init();
-				mygra.inited = true;
-*/			} else {
+			} else {
 				mygra.moveObject();
 			}
 		}
@@ -52,16 +49,15 @@ public class handler : MonoBehaviour {
 	
 	void commslisten()
 	{
-		//////////////////////////////////////////////////////
-		//////Main function which waits for a msg from an user
-		//////////////////////////////////////////////////////
+		///////////////////////////////////////////////////////
+		////// Main function which waits for a msg from an user
+		///////////////////////////////////////////////////////
 		IPEndPoint EP;
 		listener = new UdpClient(8000);
 		EP = new IPEndPoint(IPAddress.Any,8000);
 		byte[] rec = new byte[100];
 		string[] buffer;
 		string data;
-		//Socket sok = new Socket(EP.AddressFamily, SocketType.Stream, ProtocolType.Udp);
 		
 		Thread.Sleep(1000);
 		while (done)
@@ -89,7 +85,9 @@ public class handler : MonoBehaviour {
 		///////////////////////////////////////////////////////
 		////// Initialize the gra object and give the arguments
 		///////////////////////////////////////////////////////
-		soc_1 = makeSocket(server_r, port_r);
+		if (soc_1 == null) {
+			soc_1 = makeSocket(server_r, port_r);
+		}
 		// object and coordinate servers
 		// in format ip:port
 		server_o = getUrl(name+".object",soc_1);
@@ -121,8 +119,7 @@ public class handler : MonoBehaviour {
 		//IP = server_cc[0];
 		// port of the coords server
 		//mygra.port = server_cc[1];
-		
-		//string name1 = "greencube";
+
 		mygra.name = name;
 		makeobject = true;
 	}
@@ -166,14 +163,15 @@ public class handler : MonoBehaviour {
 		///////////////////////////////
 		try 
 		{
-			mygra.endProcesses();
 			done = false;
 			listener.Close();
 			soc_1.Close();
+			recThread.Abort();
+			mygra.endProcesses();
 		} catch(Exception e) 
 		{
-			print("Problem closing sockets: "+ e.ToString());
+			print("Problem closing application: "+ e.ToString());
 		}
-		print("Stop"); 
+		print("Stopped"); 
     }
 }

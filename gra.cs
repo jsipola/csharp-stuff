@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
@@ -10,7 +10,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
  
-public class gra : MonoBehaviour {
+public class gra{
 	GameObject cube;
     Thread receiveThread;
     Thread iThread; 
@@ -18,7 +18,8 @@ public class gra : MonoBehaviour {
     public string IP = "192.168.1.14";
 	public string DownloadLink = "192.168.1.84";
     public int port = 54345;
-	int version = 1;
+	public int port_c;
+	//int version = 1;
 
     System.Text.ASCIIEncoding encode = new System.Text.ASCIIEncoding();
     private IPEndPoint EP;
@@ -26,7 +27,7 @@ public class gra : MonoBehaviour {
     public string name = "";
     Vector3 pos;
     Vector3 rot;
-    int done = 1;
+    //int done = 1;
     MeshRenderer mr;
 	
 	List<string> objs = new List<string>();
@@ -38,59 +39,66 @@ public class gra : MonoBehaviour {
 	
 	
     public void Start(){
-		done = 1;
+		//done = 1;
     }
 
 	/*private*/
-    public void init(){
-		////////////////////////////////////////////
+    public bool init(){
+		/////////////////////////////////////////////////////
 		// Initialises the object and makes the socket
 		// thread (activated when user presses "make bot" button)
-		/////////////////////////////////////////////
+		/////////////////////////////////////////////////////
 		pos = new Vector3(0,0,0);
 		rot = new Vector3(0,0,0);
 		
-		
-		cube = downloadObj(); // download object during runtime
-		if (cube == null){ // if no object is found on disk or server is inaccessible
-			print("Failure loading object");
-			EditorUtility.DisplayDialog("Error","No such object found on Disk or remote Server", "OK", "No");
-			return;
+/*		if (GameObject.Find(name)) {
+			EditorUtility.DisplayDialog("Error","Object with the same name found, duplicates can't exist", "OK", "No");
+			return false;
+		}
+*/
+		if (objs.Contains(name)) {
+			objs.Remove(name);
+			posit.Remove(name); // position dict
+			rots.Remove(name);	// rotation dict
 		}
 
-		objs.Add(name); // add object to the lists
+		cube = downloadObj(); // download object during runtime and rename it to "name" variable
+		if (cube == null){ // if no object is found on disk or server is inaccessible
+			Debug.Log("Failure loading object");
+			//EditorUtility.DisplayDialog("Error","No such object found on Disk or remote Server", "OK", "No");
+			return false;
+		}
+
+		objs.Add(name); // add object to the list
 		posit.Add(name,pos); // position dict
 		rots.Add(name,rot);	// rotation dict
-		
-		//cube.name = name;
-		
-		EP = new IPEndPoint(IPAddress.Parse(IP),port);
 
+		EP = new IPEndPoint(IPAddress.Parse(IP),port);
 		sock = new Socket(EP.AddressFamily, SocketType.Stream, ProtocolType.Tcp); // make tcp socket
 		socketList.Add(sock);
-		//sock = new Socket(EP.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
 		try {
-			sock.ReceiveTimeout = 4000;
+			sock.ReceiveTimeout = 4000; // if no msg is received from the server in 4 seconds, closes the socket
 			sock.Connect(EP); // TODO: if failed try later in socket_tick
-			sock.Send(Encoding.UTF8.GetBytes("l pos\n")); // send msg to tell server start sending coords 
+			sock.Send(Encoding.UTF8.GetBytes("l pos\n")); // send msg to tell server start sending pos 
+			Debug.Log("CREATING Socket Thread (gra)");
+			receiveThread = new Thread(() => socket_thread(sock)); // makes thread for receiving data
+			receiveThread.IsBackground = true;
+			receiveThread.Start();
+			threadList.Add(receiveThread);
+			Debug.Log("Started");
+			return true;
 		} catch (Exception e) {
-			print("Problem with the socket: "+ e.ToString());
-			print("problem with the socket connection");
+			sock.Close();
+			Debug.Log("Problem with the socket (gra): "+ e.ToString());
+			return false;
 		}
-		print("CREATING Socket Thread");
-		receiveThread = new Thread(() => socket_thread(sock)); // makes thread for receiving data
-		receiveThread.IsBackground = true;
-		receiveThread.Start();
-		threadList.Add(receiveThread);
-		print("Started");
-		
-     }
-	 
-     void Update() {
+	}
+	
+    void Update(){
 		moveObject();
-     }
+    }
 
-	     
+
     private void socket_thread(Socket soc){
 		////////////////////////////
 		//Receives the location data from the server and saves them to dictionaries
@@ -101,7 +109,7 @@ public class gra : MonoBehaviour {
 				byte[] rec = new byte[100];
 				soc.Receive(rec);
 				data = encode.GetString(rec);
-				print("REC:"+data);
+				Debug.Log("REC:"+data);
 				buffer = data.Split();
 				string[] model = buffer[0].Split(new Char[] {'.'}); // get the object which the server want to move
 				if (model[1] == "pos"){
@@ -120,31 +128,35 @@ public class gra : MonoBehaviour {
 			}  
         } catch(Exception e) {
 			//sock = null;
-			print("EEEE"+e);
+			Debug.Log("EEEE"+e);
 		}
     }
-	 
+
 	private GameObject downloadObj(){
 		//////////////////////////////
 		//// Checks if the object is located on directory
 		//// if not downloads from the server
 		/////////////////////////////
-		print("Downloading files");
-		string path = System.IO.Path.GetDirectoryName(Application.dataPath);
+		string path = Directory.GetCurrentDirectory();
+		//string path = System.IO.Path.GetDirectoryName(Application.dataPath);
 		bool found = false;
 		bool server = true;
 		if (File.Exists(path+"/"+name+".obj")){
-			found = true;
-			print("OBJ file found");
+			Debug.Log("OBJ file found");
+			if (File.Exists(path+"/"+name+".mtl")){
+				found = true;
+				Debug.Log("MTL file found");
+			}
 		}
 		if (!found){
 			using (var client = new System.Net.WebClient())
 			{
 				try { // downloads object and mtl files from a HTTP server at address "DownloadLink"
+					Debug.Log("Downloading files");
 					client.DownloadFile("http://"+DownloadLink+":8000/"+name+".obj", path+"/"+name+".obj");
 					client.DownloadFile("http://"+DownloadLink+":8000/"+name+".mtl", path+"/"+name+".mtl");
 				} catch (Exception e) {
-					print("Problem downloading obj: "+ e.ToString());
+					Debug.Log("Problem downloading obj: "+ e.ToString());
 					server = false;
 				}
 			}
@@ -153,18 +165,18 @@ public class gra : MonoBehaviour {
 		if ((found) || (server)) { // if the object is either downloaded or already on disk 
 			GameObject cuube = OBJLoader.LoadOBJFile(path);	
 			cuube.name = name; // rename the object
-			print("Object loaded");
+			Debug.Log("Object loaded");
 			return cuube;
 		} else {
-			print("File not found on disk and download failed");
+			Debug.Log("File not found on disk and download failed");
 			GameObject game = null;
 			return game;
 		}
 	}
 
-	private void moveObject(){
+	public void moveObject(){
 		///////////////////////////
-		// Movo object in the scene 
+		// Move objects in the scene
 		///////////////////////////
 		Vector3 pos_vec;
 		Vector3 rot_vec;
@@ -177,12 +189,34 @@ public class gra : MonoBehaviour {
 				obj.transform.eulerAngles = rot_vec;
 			}
 		} catch(Exception e) {
-			//print("Problem moving object: "+ e.ToString());
+			//Debug.Log("Problem moving object: "+ e.ToString());
 		}
 		
 	}
-	
-     public void OnApplicationQuit(){
+
+	public void endProcesses(){
+		/////////////////////////////////////////////////
+		///// Ending procedures when not used as a script
+		/////////////////////////////////////////////////
+		try {
+			foreach(var thread in threadList) { // rotates the objects of the scene
+				thread.Abort();
+			}
+		} catch(Exception e) {
+			Debug.Log("Problem ending threads: "+ e.ToString());
+		}
+		try {
+			foreach(var socket in socketList) { // rotates the objects of the scene
+				if (socket!=null) socket.Close(); 
+			}
+		} catch(Exception e) {
+			Debug.Log("Problem ending sockets: "+ e.ToString());
+		}
+		Debug.Log("Stop");   
+	}
+
+
+    public void OnApplicationQuit(){
 		/////////////////////////////
 		//// Application end procedures
 		/////////////////////////////
@@ -191,15 +225,15 @@ public class gra : MonoBehaviour {
 				thread.Abort();
 			}
 		} catch(Exception e) {
-			print("Problem ending threads: "+ e.ToString());
+			Debug.Log("Problem ending threads: "+ e.ToString());
 		}
 		try {
 			foreach(var socket in socketList) { // rotates the objects of the scene
 				if (socket!=null) socket.Close(); 
 			}
 		} catch(Exception e) {
-			print("Problem ending sockets: "+ e.ToString());
+			Debug.Log("Problem ending sockets: "+ e.ToString());
 		}
-		print("Stop"); 
-     }    
+		Debug.Log("Stop"); 
+    }    
 }
