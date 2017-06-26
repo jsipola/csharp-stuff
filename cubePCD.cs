@@ -8,7 +8,7 @@ using System.Collections;
 using System.IO;
 using System.Globalization;
 
-public class PointsPCD : MonoBehaviour {
+public class cubePCD : MonoBehaviour {
 
     public Vector3 defaultScale = new Vector3(10,10,10);
     // File
@@ -19,7 +19,7 @@ public class PointsPCD : MonoBehaviour {
 	// GUI
 	private float progress = 0;
 	private string guiText;
-	public bool loaded = false;
+	private bool loaded = false;
 
 	// PointCloud
 	private GameObject pointCloud;
@@ -36,8 +36,11 @@ public class PointsPCD : MonoBehaviour {
 	private Vector3[] points;
 	private Color32[] colors;
 	private Vector3 minValue;
-
-	textureadd target;
+	
+	private Mesh newMesh = null;
+	
+	GameObject cube;
+	int counter = 0;
 
 	
 	public void Start () {
@@ -65,9 +68,11 @@ public class PointsPCD : MonoBehaviour {
 
 		// Get Filename
 		filename = Path.GetFileName(dataPath);
-
+		
+		cube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+		
 		loadScene ();
-			
+		
 	}
 
 
@@ -138,11 +143,6 @@ public class PointsPCD : MonoBehaviour {
 			
 			buffer = sr.ReadLine ().Split ();
 
-/*			if (float.Parse (buffer[0]) == 0 && float.Parse (buffer[1]) == 0 && float.Parse (buffer[2]) == 0){
-				i++;
-				continue;
-			}
-*/		
 			if (!invertYZ)
 				points[i] = new Vector3 (float.Parse (buffer[0])*scale, float.Parse (buffer[1])*scale,float.Parse (buffer[2])*scale) ;
 			else
@@ -153,11 +153,6 @@ public class PointsPCD : MonoBehaviour {
 										(byte)((System.Convert.ToUInt32(double.Parse(buffer[3], CultureInfo.InvariantCulture)) >> 8) & 0xFF),
 										(byte)((System.Convert.ToUInt32(double.Parse(buffer[3], CultureInfo.InvariantCulture)) >> 0) & 0xFF),
 										(byte)((System.Convert.ToUInt32(double.Parse(buffer[3], CultureInfo.InvariantCulture)) >> 24) & 0xFF));
-				/*colors[i] = new Color ((System.Convert.ToUInt32(double.Parse(buffer[3], CultureInfo.InvariantCulture)) >> 0) & 255,
-									(System.Convert.ToUInt32(double.Parse(buffer[3], CultureInfo.InvariantCulture)) >> 8) & 255,
-									(System.Convert.ToUInt32(double.Parse(buffer[3], CultureInfo.InvariantCulture)) >> 16) & 255,
-									(System.Convert.ToUInt32(double.Parse(buffer[3], CultureInfo.InvariantCulture)) >> 24) & 255);
-				*/
 			} else
 				colors[i] = Color.yellow;
 
@@ -171,8 +166,11 @@ public class PointsPCD : MonoBehaviour {
 				yield return null;
 			}
 		}
-		
-		
+
+		for (int i=0;i<numPoints;i++){
+			CloneAndPlace(points[i], cube, colors[i]);
+		}
+		/*
 		// Instantiate Point Groups
 		numPointGroups = Mathf.CeilToInt (numPoints*1.0f / limitPoints*1.0f);
 
@@ -189,11 +187,28 @@ public class PointsPCD : MonoBehaviour {
 
 		//Store PointCloud
 		UnityEditor.PrefabUtility.CreatePrefab ("Assets/Resources/PointCloudMeshes/" + filename + ".prefab", pointCloud);
-
-		loaded = true;
+		*/
 		sr.Close();
+		loaded = true;
 	}
-
+	
+	public static void CloneAndPlace(Vector3 newPosition, GameObject originalGameobject, Color32 color)
+	{// http://in2gpu.com/2014/08/25/build-minecraft-unity-part4-worldgen/
+		// Clone
+		GameObject clone = (GameObject)Instantiate(originalGameobject, newPosition, Quaternion.identity);
+		
+		
+		// Place
+		clone.transform.position = newPosition;
+		//MeshRenderer render = clone.GetComponent<MeshRenderer>();
+		//Material mat = new Material(Shader.Find("grey_light"));
+		
+		//mat.color = color;
+		//render.material = mat;
+		
+		// Rename
+		clone.name = "Cube@" + clone.transform.position;
+	}
 	
 	void InstantiateMesh(int meshInd, int nPoints){
 		// Create Mesh
@@ -204,7 +219,6 @@ public class PointsPCD : MonoBehaviour {
 
 		pointGroup.GetComponent<MeshFilter> ().mesh = CreateMesh (meshInd, nPoints, limitPoints);
 		pointGroup.transform.parent = pointCloud.transform;
-
 
 		// Store Mesh
 		UnityEditor.AssetDatabase.CreateAsset(pointGroup.GetComponent<MeshFilter> ().mesh, "Assets/Resources/PointCloudMeshes/" + filename + @"/" + filename + meshInd + ".asset");
@@ -220,28 +234,56 @@ public class PointsPCD : MonoBehaviour {
 		int[] indecies = new int[nPoints];
 		Color[] myColors = new Color[nPoints];
 
-		for(int i=0;i<nPoints;++i) {
+		for(int i=0;i<nPoints;++i){
 			myPoints[i] = points[id*limitPoints + i] - minValue;
 			indecies[i] = i;
 			myColors[i] = colors[id*limitPoints + i];
 		}
-
 
 		mesh.vertices = myPoints;
 		mesh.colors = myColors;
 		mesh.SetIndices(indecies, MeshTopology.Points,0);
 		mesh.uv = new Vector2[nPoints];
 		mesh.normals = new Vector3[nPoints];
-
-
+		
 		return mesh;
+	}
+	
+	void MakePoints(string[] buffer) {
+		Vector3 spot = new Vector3 (float.Parse (buffer[0])*scale, float.Parse (buffer[1])*scale,float.Parse (buffer[2])*scale);
+		UpdateMesh(spot);
+	}
+	
+	
+	void UpdateMesh(Vector3 newPoints){
+		if (newMesh == null){
+			pointCloud = new GameObject("PCD-UP");
+			newMesh = new Mesh();
+			Vector3[] points = new Vector3[65000];
+			newMesh.uv = new Vector2[65000];
+			newMesh.normals = new Vector3[65000];
+			newMesh.vertices = points;
+		}
+		newMesh = pointCloud.GetComponent<MeshFilter>().mesh;
+		Vector3[] verts = newMesh.vertices;
+		
+		//for (int i=0;i<newPoints.Length;i++){
+			
+		if ((Array.IndexOf(verts, newPoints)) > -1 ){ 
+			
+		} else {
+			verts[counter] = newPoints;
+			counter++;
+		}
+		if (counter > 65000) { counter = 0;}
+		//}
+		newMesh.vertices = verts;
+		
 	}
 
 	void calculateMin(Vector3 point){
 		if (minValue.magnitude == 0)
 			minValue = point;
-
-
 		if (point.x < minValue.x)
 			minValue.x = point.x;
 		if (point.y < minValue.y)
